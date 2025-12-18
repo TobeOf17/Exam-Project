@@ -1,0 +1,26 @@
+name: CI Pipeline
+
+# Trigger the workflow on push and pull requests to main branch
+on:
+  push:
+    branches: [ main, dev ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  frontend:
+    name: Frontend Build and Test
+    runs-on: ubuntu-latest
+    
+    steps:
+    # Checkout the code
+    - name: Checkout code
+      uses: actions/checkout@v3
+    
+    # Setup Node.js for frontend
+    - name: Setup Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '20'
+    
+

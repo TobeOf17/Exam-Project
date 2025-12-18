@@ -3,7 +3,7 @@ name: CI Pipeline
 # Trigger the workflow on push and pull requests to main branch
 on:
   push:
-    branches: [ main, develop ]
+    branches: [ main, dev ]
   pull_request:
     branches: [ main ]
 
@@ -21,68 +21,6 @@ jobs:
     - name: Setup Node.js
       uses: actions/setup-node@v3
       with:
-        node-version: '18'
+        node-version: '20'
     
-    # Install frontend dependencies
-    - name: Install frontend dependencies
-      working-directory: ./frontend
-      run: npm install
-    
-    # Run frontend tests (uncomment when you have tests)
-    # - name: Run frontend tests
-    #   working-directory: ./frontend
-    #   run: npm test
-    
-    # Build frontend
-    - name: Build frontend
-      working-directory: ./frontend
-      run: npm run build
-    
-    # Upload frontend build artifacts
-    - name: Upload frontend build artifacts
-      uses: actions/upload-artifact@v4
-      if: success()
-      with:
-        name: frontend-build
-        path: frontend/.next/
-        retention-days: 7
 
-  backend:
-    name: Backend Build and Test
-    runs-on: ubuntu-latest
-    
-    steps:
-    # Checkout the code
-    - name: Checkout code
-      uses: actions/checkout@v3
-    
-    # Setup Node.js for backend (adjust if using different runtime)
-    - name: Setup Node.js
-      uses: actions/setup-node@v3
-      with:
-        node-version: '18'
-    
-    # Install backend dependencies
-    - name: Install backend dependencies
-      working-directory: ./backend
-      run: npm install
-    
-    # Run backend tests (uncomment when you have tests)
-    # - name: Run backend tests
-    #   working-directory: ./backend
-    #   run: npm test
-    
-    # Build backend (if you have a build step)
-    - name: Build backend
-      working-directory: ./backend
-      run: npm run build
-      continue-on-error: true  # Remove this line when build script exists
-    
-    # Upload backend build artifacts (if applicable)
-    - name: Upload backend build artifacts
-      uses: actions/upload-artifact@v4
-      if: success()
-      with:
-        name: backend-build
-        path: backend/dist/
-        retention-days: 7

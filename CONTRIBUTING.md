@@ -1,95 +1,88 @@
 # Contributing to POS Inventory System
 
-Thank you for contributing to our project! Please follow these guidelines.
+This document outlines how team members should contribute to the project in a consistent and traceable way.
 
-## Development Setup
+---
 
-See README.md for setup instructions.
+## 📌 General Guidelines
 
-## Coding Standards
+- All work must be tracked through **GitHub Issues**
+- No direct pushes to `main`
+- All changes go through **Pull Requests**
+- Follow agreed coding and testing standards
+- Keep commits focused and meaningful
 
-### Python/Django
-- Follow PEP 8 style guide
-- Use Black for code formatting: `black .`
-- Use Flake8 for linting: `flake8`
-- Write docstrings for functions and classes
-- Maximum line length: 88 characters (Black default)
+---
 
-### JavaScript/TypeScript
-- Follow ESLint rules configured in the project
-- Use Prettier for formatting: `npm run format`
-- Use TypeScript types, avoid `any`
-- Use meaningful variable names
+## 🔧 Development Setup
 
-## Git Workflow
+Detailed setup instructions are maintained in **QUICK_START.md**.
 
-1. **Create a branch**
-```bash
-   git checkout -b feature/your-feature-name
-```
+Before contributing, ensure:
+1. Repository is cloned
+2. Frontend and backend run locally
+3. Feature branch is created
+4. You have read this guide
 
-2. **Make changes and commit**
-```bash
-   git add .
-   git commit -m "Add: clear description of changes"
-```
+---
 
-3. **Push to GitHub**
-```bash
-   git push origin feature/your-feature-name
-```
+## 🔄 Git Workflow
 
-4. **Create Pull Request**
-   - Go to GitHub repository
-   - Click "Pull requests" → "New pull request"
-   - Select your branch
-   - Fill in PR template
-   - Request review
+### Commit Message Format
+**Types:** Add, Fix, Update, Docs, Test, Refactor, Chore
 
-5. **Address feedback**
-   - Make requested changes
-   - Push updates to same branch
-   - PR will update automatically
+---
 
-6. **Merge**
-   - After approval, project manager will merge
-   - Delete your branch after merge
+## 🔁 Pull Request Process
 
-## Testing Requirements
+1. Create a feature branch from `main`
+2. Complete assigned issue
+3. Add or update tests where applicable
+4. Ensure CI checks pass
+5. Submit Pull Request
+6. Request review from relevant lead
+7. Address feedback
+8. Merge after approval
 
-- Write tests for new features
-- Ensure all existing tests pass
-- Aim for 60%+ code coverage
+At least **one approval** is required before merging.
 
-### Running Tests
+---
 
-Frontend:
-```bash
-cd frontend
-npm test
-```
+## 🧪 Testing Requirements
 
-Backend:
-```bash
-cd backend
-pytest
-```
+### Backend
+- Use Pytest
+- Test core business logic and APIs
+- Critical features must include tests
 
-## Pull Request Guidelines
+### Frontend
+- Use Jest + React Testing Library
+- Test core UI components and flows
 
-- Link related issues in PR description
-- Provide clear description of changes
-- Include screenshots for UI changes
-- Ensure CI checks pass
-- Request review from appropriate team member
+---
 
-## Code Review Process
+## Code Review Expectations
 
-- All PRs require at least one approval
-- Address all comments before merging
-- Keep PRs focused and reasonably sized
-- Respond to reviews within 24 hours
+Reviewers should check:
+- Correctness and clarity
+- Alignment with DDD and architecture
+- Adequate tests
+- No security or performance issues
 
-## Questions?
+Authors should:
+- Respond to feedback promptly
+- Explain decisions where necessary
+- Update code accordingly
 
-Ask in the team communication channel or create an issue.
+---
+
+## 🆘 Getting Help
+
+- Technical questions: GitHub issues or PR comments
+- Bugs: Create an issue
+- Urgent concerns: Contact Project Manager (Kene) or Product Manager (Tobe)
+
+---
+
+Thank you for contributing to the project.  
+Clear processes lead to better software.

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from 'react'
+import React from 'react'
 
 interface CartItem {
   barcode: string;
@@ -9,22 +9,12 @@ interface CartItem {
   price: number;
 }
 
-export default function CartTable() {
-  const [cartItems, setCartItems] = useState<CartItem[]>([
-    { barcode: '234934474747', name: 'PRODUCT 1', quantity: 1, price: 2000.00 },
-    { barcode: '834959948420', name: 'PRODUCT 2', quantity: 2, price: 2000.00 },
-  ]);
+interface CartTableProps {
+  cartItems: CartItem[];
+  updateQuantity: (index: number, delta: number) => void;
+}
 
-  const updateQuantity = (index: number, delta: number) => {
-    setCartItems(items => {
-      const newItems = [...items];
-      const newQty = newItems[index].quantity + delta;
-      if (newQty > 0) {
-        newItems[index].quantity = newQty;
-      }
-      return newItems;
-    });
-  };
+export default function CartTable({ cartItems, updateQuantity }: CartTableProps) {
 
   return (
     <div className="bg-[#34516A] overflow-hidden shadow-lg">

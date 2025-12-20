@@ -2,9 +2,19 @@
 
 import React from 'react'
 
-export default function OrderSummary() {
-  // This would come from cart state in a real app
-  const totalAmount = 5200.00;
+interface CartItem {
+  barcode: string;
+  name: string;
+  quantity: number;
+  price: number;
+}
+
+interface OrderSummaryProps {
+  cartItems: CartItem[];
+}
+
+export default function OrderSummary({ cartItems }: OrderSummaryProps) {
+  const totalAmount = cartItems.reduce((total, item) => total + (item.quantity * item.price), 0);
 
   return (
     <div className="bg-[#D1D5DB] p-4 flex items-center justify-between gap-3 shadow-lg">

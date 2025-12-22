@@ -5,6 +5,7 @@ import React, { useState } from 'react'
 export default function ProductSearch() {
   const [searchType, setSearchType] = useState<'barcode' | 'product'>('barcode');
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [searchValue, setSearchValue] = useState('');
 
   return (
     <div className="bg-[#34516A] p-6">
@@ -30,12 +31,19 @@ export default function ProductSearch() {
 
       {/* Search Bar with Dropdown - Right Aligned */}
       <div className="flex justify-end gap-2">
-        <div className="relative w-80">
+        <div className="relative w-80 flex gap-2">
+          <input
+            type="text"
+            value={searchValue}
+            onChange={(e) => setSearchValue(e.target.value)}
+            placeholder={searchType === 'barcode' ? 'Search by barcode...' : 'Search by product name...'}
+            className="flex-1 bg-[#496A86] text-gray-200 placeholder-gray-400 px-4 py-2.5 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 text-sm"
+          />
           <button
             onClick={() => setDropdownOpen(!dropdownOpen)}
-            className="w-full bg-[#496A86] text-gray-300 px-4 py-2.5 rounded-lg flex justify-between items-center focus:outline-none focus:ring-2 focus:ring-blue-400"
+            className="bg-[#496A86] text-gray-300 px-3 py-2.5 rounded-lg hover:bg-[#5A7B97] focus:outline-none focus:ring-2 focus:ring-blue-400"
+            title="Change search type"
           >
-            <span className="text-sm">{searchType === 'barcode' ? 'Search by barcode...' : 'Search by product name...'}</span>
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
             </svg>
@@ -43,7 +51,7 @@ export default function ProductSearch() {
 
           {/* Dropdown Menu */}
           {dropdownOpen && (
-            <div className="absolute top-full mt-2 w-full bg-[#496A86] rounded-lg shadow-lg z-10 overflow-hidden">
+            <div className="absolute top-full mt-2 right-0 w-64 bg-[#496A86] rounded-lg shadow-lg z-10 overflow-hidden">
               <button
                 onClick={() => {
                   setSearchType('barcode');

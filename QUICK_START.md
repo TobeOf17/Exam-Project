@@ -28,7 +28,7 @@ cd pos-inventory-system
 
 cd backend  
 python -m venv venv  
-source venv/bin/activate   # Windows: venv\Scripts\activate
+# ManOS source venv/bin/activate   # Windows: venv\Scripts\activate
 
 ### 2. Install dependencies
 
@@ -45,7 +45,11 @@ Edit `.env` and set your database credentials and secret key.
 python manage.py migrate  
 python manage.py createsuperuser
 
-### 5. Start backend server
+### 5. Install psycopg2-binary library
+
+pip install psycopg2-binary
+
+### 6. Start backend server
 
 python manage.py runserver
 

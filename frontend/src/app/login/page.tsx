@@ -6,11 +6,10 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { ShoppingCart } from 'lucide-react';
-import { useAuthStore } from '../store/authStore';
 
 const loginSchema = z.object({
   username: z.string().min(1, 'Username is required'),
-  password: z.string().min(6, 'Password must be at least 6 characters'),
+  password: z.string().min(1, 'Password is required'),
 });
 
 type LoginFormData = z.infer<typeof loginSchema>;
@@ -19,7 +18,6 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
   const router = useRouter();
-  const login = useAuthStore((state) => state.login);
 
   const {
     register,
@@ -34,24 +32,35 @@ export default function LoginPage() {
     setLoginError(null);
 
     try {
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 500));
+      // 1. CONNECT TO YOUR DJANGO BACKEND
+      const response = await fetch('http://127.0.0.1:8000/api/auth/login/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          username: data.username,
+          password: data.password,
+        }),
+      });
 
-      const result = login(data.username, data.password);
+      const result = await response.json();
 
-      if (result.success && result.role) {
-        // Role-based routing
-        if (result.role === 'manager') {
-          router.push('/inventory');
-        } else if (result.role === 'cashier') {
-          router.push('/pos/register');
-        }
+      if (response.ok) {
+        // 2. SAVE THE TOKENS
+        localStorage.setItem('access', result.access);
+        localStorage.setItem('refresh', result.refresh);
+        
+        // 3. REDIRECT TO INVENTORY
+        router.push('/inventory'); 
       } else {
-        setLoginError(result.error || 'Login failed');
+        // Show error message from backend
+        setLoginError(result.detail || 'Invalid credentials');
       }
+
     } catch (error) {
-      console.error('Login error:', error);
-      setLoginError('An unexpected error occurred');
+      console.error('Login connection error:', error);
+      setLoginError('Could not connect to the Backend Server. Is it running?');
     } finally {
       setIsLoading(false);
     }
@@ -170,7 +179,7 @@ export default function LoginPage() {
                 <input
                   id="password"
                   type="password"
-                  placeholder="Manager@123"
+                  placeholder="Password"
                   {...register('password')}
                   className={`w-full rounded-lg border ${
                     errors.password ? 'border-red-400' : 'border-gray-300'

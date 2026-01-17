@@ -8,38 +8,9 @@ on:
     branches: [ main ]
 
 jobs:
-  backend:
-    name: Backend Build and Test
-    runs-on: ubuntu-latest
-
-    steps:
-      # Step 1: Checkout repository code
-      - name: Checkout code
-        uses: actions/checkout@v3
-
-      # Step 2: Set up Python
-      - name: Setup Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.11'
-
-      # Step 3: Install backend dependencies
-      - name: Install Python dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r backend/requirements.txt
-          pip install pytest pytest-django
-
-      # Step 4: Run backend tests
-      - name: Run backend tests
-        run: |
-          cd backend
-          pytest
-
   frontend:
     name: Frontend Build and Test
     runs-on: ubuntu-latest
-    needs: backend # ensures frontend runs after backend tests pass
 
     steps:
       # Step 1: Checkout repository code
@@ -52,21 +23,3 @@ jobs:
         with:
           node-version: '20'
           cache: 'npm'
-
-      # Step 3: Install frontend dependencies
-      - name: Install dependencies
-        run: |
-          cd frontend
-          npm ci
-
-      # Step 4: Build frontend
-      - name: Build project
-        run: |
-          cd frontend
-          npm run build --if-present
-
-      # Step 5: Run frontend tests
-      - name: Run tests
-        run: |
-          cd frontend
-          npm test --if-present

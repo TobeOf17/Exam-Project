@@ -1,10 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { ArrowLeft, Search } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { InventorySidebar, InventoryHeader } from '@/app/components/inventory';
+import { InventorySidebar, InventoryHeader, type DropdownOption } from '@/app/components/inventory';
 import { usePurchaseOrderStore } from '@/app/store/purchaseOrderStore';
+import { useReceiveStockStore } from '@/app/store/receiveStockStore';
 
 interface InventoryItem {
   barcode: string;
@@ -13,17 +14,33 @@ interface InventoryItem {
   unitPrice: number;
 }
 
+const DROPDOWN_OPTIONS: DropdownOption[] = [
+  { value: 'purchase_order', label: 'Load Previously Purchased Order' },
+  { value: 'received_stock', label: 'Load Previously Received Stock' },
+];
+
 export default function InventoryListPage() {
   const router = useRouter();
-  const [searchQuery, setSearchQuery] = useState('');
   const [dateSearch, setDateSearch] = useState('');
-  const [loadedPoId, setLoadedPoId] = useState<string>('');
+  const [loadedId, setLoadedId] = useState<string>('');
+  const [selectedMode, setSelectedMode] = useState<string>('purchase_order');
 
   // Purchase orders from store
   const purchaseOrders = usePurchaseOrderStore((state) => state.purchaseOrders);
   const togglePurchaseOrder = usePurchaseOrderStore((state) => state.togglePurchaseOrder);
+  const fetchPurchaseOrders = usePurchaseOrderStore((state) => state.fetchPurchaseOrders);
+  const isLoadingPO = usePurchaseOrderStore((state) => state.isLoading);
 
-  // Inventory items from loaded purchase order
+  // Received stocks from store
+  const receivedStocks = useReceiveStockStore((state) => state.receivedStocks);
+  const [selectedReceivedStocks, setSelectedReceivedStocks] = useState<Set<string>>(new Set());
+
+  // Fetch purchase orders on mount
+  useEffect(() => {
+    fetchPurchaseOrders();
+  }, [fetchPurchaseOrders]);
+
+  // Inventory items from loaded order
   const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
 
   const calculateTotalAmount = () => {
@@ -36,38 +53,89 @@ export default function InventoryListPage() {
     togglePurchaseOrder(id);
   };
 
-  const handleLoadOrder = () => {
-    const selectedPOs = purchaseOrders.filter((po) => po.selected);
-    if (selectedPOs.length === 0) {
-      alert('Please select at least one purchase order');
-      return;
-    }
-
-    // Load items from selected purchase orders
-    const allItems: InventoryItem[] = [];
-    const poIds: string[] = [];
-
-    selectedPOs.forEach((po) => {
-      poIds.push(po.id);
-      po.items.forEach((item) => {
-        // Check if item already exists (combine quantities if same barcode)
-        const existingIndex = allItems.findIndex((i) => i.barcode === item.barcode);
-        if (existingIndex !== -1) {
-          allItems[existingIndex].qtyNeeded += item.qtyNeeded;
-        } else {
-          allItems.push({
-            barcode: item.barcode,
-            productName: item.productName,
-            qtyNeeded: item.qtyNeeded,
-            unitPrice: item.unitPrice,
-          });
-        }
-      });
+  const handleToggleRS = (id: string) => {
+    setSelectedReceivedStocks((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(id)) {
+        newSet.delete(id);
+      } else {
+        newSet.add(id);
+      }
+      return newSet;
     });
+  };
 
-    setInventoryItems(allItems);
-    setLoadedPoId(poIds.join(', '));
-    console.log('Loaded orders:', selectedPOs);
+  const handleModeChange = (value: string) => {
+    setSelectedMode(value);
+    // Clear loaded items when switching modes
+    setInventoryItems([]);
+    setLoadedId('');
+  };
+
+  const handleLoadOrder = () => {
+    if (selectedMode === 'purchase_order') {
+      // Load Purchase Orders
+      const selectedPOs = purchaseOrders.filter((po) => po.selected);
+      if (selectedPOs.length === 0) {
+        alert('Please select at least one purchase order');
+        return;
+      }
+
+      const allItems: InventoryItem[] = [];
+      const poIds: string[] = [];
+
+      selectedPOs.forEach((po) => {
+        poIds.push(po.id);
+        po.items.forEach((item) => {
+          const existingIndex = allItems.findIndex((i) => i.barcode === item.barcode);
+          if (existingIndex !== -1) {
+            allItems[existingIndex].qtyNeeded += item.qtyNeeded;
+          } else {
+            allItems.push({
+              barcode: item.barcode,
+              productName: item.productName,
+              qtyNeeded: item.qtyNeeded,
+              unitPrice: item.unitPrice,
+            });
+          }
+        });
+      });
+
+      setInventoryItems(allItems);
+      setLoadedId(poIds.join(', '));
+      console.log('Loaded purchase orders:', selectedPOs);
+    } else {
+      // Load Received Stocks
+      const selectedRSList = receivedStocks.filter((rs) => selectedReceivedStocks.has(rs.id));
+      if (selectedRSList.length === 0) {
+        alert('Please select at least one received stock');
+        return;
+      }
+
+      const allItems: InventoryItem[] = [];
+      const rsIds: string[] = [];
+
+      selectedRSList.forEach((rs) => {
+        rsIds.push(rs.id);
+        rs.items.forEach((item) => {
+          const existingIndex = allItems.findIndex((i) => i.barcode === item.barcode);
+          if (existingIndex !== -1) {
+            allItems[existingIndex].qtyNeeded += item.qtyDelivered;
+          } else {
+            allItems.push({
+              barcode: item.barcode,
+              productName: item.productName,
+              qtyNeeded: item.qtyDelivered,
+              unitPrice: item.unitPrice,
+            });
+          }
+        });
+      });
+
+      setInventoryItems(allItems);
+      setLoadedId(rsIds.join(', '));
+      console.log('Loaded received stocks:', selectedRSList);
+    }
   };
 
   return (
@@ -76,8 +144,10 @@ export default function InventoryListPage() {
 
       <div className="flex-1 flex flex-col">
         <InventoryHeader
-          searchPlaceholder="Load Previously Purchased Order"
-          onSearch={setSearchQuery}
+          dropdownMode={true}
+          dropdownOptions={DROPDOWN_OPTIONS}
+          selectedOption={selectedMode}
+          onOptionChange={handleModeChange}
         />
 
         <main className="flex-1 p-6">
@@ -89,10 +159,12 @@ export default function InventoryListPage() {
                 <div className="flex items-center justify-between mb-4">
                   <div>
                     <h2 className="text-[#2d4a5c] font-semibold text-lg">
-                      {loadedPoId ? 'Purchase Order Items' : 'Inventory History'}
+                      {loadedId
+                        ? (selectedMode === 'purchase_order' ? 'Purchase Order Items' : 'Received Stock Items')
+                        : 'Inventory History'}
                     </h2>
-                    {loadedPoId && (
-                      <p className="text-[#2d4a5c] text-sm font-mono">{loadedPoId}</p>
+                    {loadedId && (
+                      <p className="text-[#2d4a5c] text-sm font-mono">{loadedId}</p>
                     )}
                   </div>
                   <div className="relative">
@@ -119,7 +191,7 @@ export default function InventoryListPage() {
                           Product name
                         </th>
                         <th className="px-4 py-3 text-left text-sm font-semibold">
-                          Qty needed
+                          {selectedMode === 'purchase_order' ? 'Qty needed' : 'Qty available'}
                         </th>
                         <th className="px-4 py-3 text-left text-sm font-semibold">
                           Unit price
@@ -179,36 +251,65 @@ export default function InventoryListPage() {
               </div>
             </div>
 
-            {/* Right Sidebar - Purchase Orders */}
+            {/* Right Sidebar - Purchase Orders or Received Stocks */}
             <div className="bg-[#b8d4e8] rounded-lg p-6 min-w-[280px] h-fit">
               <h3 className="text-[#2d4a5c] font-semibold text-lg mb-4">
-                Purchase Order
+                {selectedMode === 'purchase_order' ? 'Purchase Order' : 'Received Stock'}
               </h3>
 
               <div className="space-y-3 mb-6 max-h-[300px] overflow-y-auto">
-                {purchaseOrders.length === 0 ? (
-                  <div className="bg-white rounded-lg p-4 text-center text-gray-500 text-sm">
-                    No purchase orders yet
-                  </div>
-                ) : (
-                  purchaseOrders.map((po) => (
-                    <div
-                      key={po.id}
-                      className="bg-white rounded-lg p-4 flex items-center justify-between cursor-pointer hover:bg-gray-50"
-                      onClick={() => handleTogglePO(po.id)}
-                    >
-                      <span className="text-sm text-[#2d4a5c] font-medium font-mono">
-                        {po.id}
-                      </span>
-                      <input
-                        type="checkbox"
-                        checked={po.selected}
-                        onChange={() => handleTogglePO(po.id)}
-                        className="w-4 h-4"
-                        onClick={(e) => e.stopPropagation()}
-                      />
+                {selectedMode === 'purchase_order' ? (
+                  // Purchase Orders List
+                  purchaseOrders.length === 0 ? (
+                    <div className="bg-white rounded-lg p-4 text-center text-gray-500 text-sm">
+                      No purchase orders yet
                     </div>
-                  ))
+                  ) : (
+                    purchaseOrders.map((po) => (
+                      <div
+                        key={po.id}
+                        className="bg-white rounded-lg p-4 flex items-center justify-between cursor-pointer hover:bg-gray-50"
+                        onClick={() => handleTogglePO(po.id)}
+                      >
+                        <span className="text-sm text-[#2d4a5c] font-medium font-mono">
+                          {po.id}
+                        </span>
+                        <input
+                          type="checkbox"
+                          checked={po.selected}
+                          onChange={() => handleTogglePO(po.id)}
+                          className="w-4 h-4"
+                          onClick={(e) => e.stopPropagation()}
+                        />
+                      </div>
+                    ))
+                  )
+                ) : (
+                  // Received Stocks List
+                  receivedStocks.length === 0 ? (
+                    <div className="bg-white rounded-lg p-4 text-center text-gray-500 text-sm">
+                      No received stocks yet
+                    </div>
+                  ) : (
+                    receivedStocks.map((rs) => (
+                      <div
+                        key={rs.id}
+                        className="bg-white rounded-lg p-4 flex items-center justify-between cursor-pointer hover:bg-gray-50"
+                        onClick={() => handleToggleRS(rs.id)}
+                      >
+                        <span className="text-sm text-[#2d4a5c] font-medium font-mono">
+                          {rs.id}
+                        </span>
+                        <input
+                          type="checkbox"
+                          checked={selectedReceivedStocks.has(rs.id)}
+                          onChange={() => handleToggleRS(rs.id)}
+                          className="w-4 h-4"
+                          onClick={(e) => e.stopPropagation()}
+                        />
+                      </div>
+                    ))
+                  )
                 )}
               </div>
 

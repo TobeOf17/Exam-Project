@@ -52,6 +52,21 @@ class PurchaseOrderViewSet(viewsets.ModelViewSet):
             return PurchaseOrderCreateSerializer
         return PurchaseOrderSerializer
 
+    def create(self, request, *args, **kwargs):
+        """Override create to return full serialized response with sku_details."""
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        instance = serializer.save()
+
+        # Re-fetch with proper select_related to ensure sku_details is populated
+        instance = PurchaseOrder.objects.select_related('supplier').prefetch_related(
+            'lines', 'lines__sku', 'lines__sku__product'
+        ).get(pk=instance.pk)
+
+        # Use the read serializer to include sku_details
+        response_serializer = PurchaseOrderSerializer(instance)
+        return Response(response_serializer.data, status=status.HTTP_201_CREATED)
+
     @action(detail=True, methods=['post'])
     @transaction.atomic
     def receive(self, request, pk=None):

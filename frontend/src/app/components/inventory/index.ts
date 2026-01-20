@@ -15,3 +15,4 @@ export type { RefundItem } from './RefundItemsTable';
 export type { RefundSummaryItem } from './RefundSummary';
 export type { Notification } from './NotificationsPanel';
 export type { Supplier } from './SupplierSelector';
+export type { DropdownOption } from './InventoryHeader';

@@ -1,19 +1,18 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { ArrowLeft } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import {
   InventorySidebar,
   InventoryHeader,
   PurchaseOrderTable,
-  LowStockAlert,
   SupplierSelector,
   type PurchaseOrderItem,
-  type Supplier,
 } from '@/app/components/inventory';
 import { useSupplierStore } from '@/app/store/supplierStore';
 import { usePurchaseOrderStore } from '@/app/store/purchaseOrderStore';
+import { useProductStore } from '@/app/store/productStore';
 
 // Generate a unique Purchase Order ID
 const generatePurchaseOrderId = (): string => {
@@ -30,21 +29,32 @@ const generatePurchaseOrderId = (): string => {
 export default function CreatePurchaseOrderPage() {
   const router = useRouter();
   const suppliers = useSupplierStore((state) => state.suppliers);
+  const fetchSuppliers = useSupplierStore((state) => state.fetchSuppliers);
   const addPurchaseOrder = usePurchaseOrderStore((state) => state.addPurchaseOrder);
+  const products = useProductStore((state) => state.products);
+  const fetchProducts = useProductStore((state) => state.fetchProducts);
+  const getProductByBarcode = useProductStore((state) => state.getProductByBarcode);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedSupplierId, setSelectedSupplierId] = useState<string>('');
   const [showSuccessMessage, setShowSuccessMessage] = useState(false);
   const [lastCreatedPoId, setLastCreatedPoId] = useState<string>('');
+  const [isCreating, setIsCreating] = useState(false);
   const [poItems, setPoItems] = useState<PurchaseOrderItem[]>([
     { barcode: '', productName: '', qtyNeeded: 0, unitPrice: 0 },
   ]);
 
-  // Mock low stock items (replace with API call later)
-  const lowStockItems = [
-    { barcode: '83464569', productName: 'PRODUCT 8' },
-    { barcode: '44675676', productName: 'PRODUCT 7' },
-    { barcode: '93847562', productName: 'PRODUCT 9' },
-  ];
+  // Fetch suppliers and products on mount
+  useEffect(() => {
+    fetchSuppliers();
+    fetchProducts();
+  }, [fetchSuppliers, fetchProducts]);
+
+  // Get available products from the store (for the sidebar)
+  const availableProducts = products.map((p) => ({
+    barcode: p.barcode,
+    productName: p.productName,
+    unitPrice: p.purchasePrice,
+  }));
 
   const calculateTotalAmount = () => {
     return poItems.reduce((total, item) => {
@@ -54,6 +64,16 @@ export default function CreatePurchaseOrderPage() {
 
   const handleUpdateItem = (index: number, updatedItem: PurchaseOrderItem) => {
     const newItems = [...poItems];
+
+    // If barcode changed, try to auto-fill product info from store
+    if (updatedItem.barcode && updatedItem.barcode !== poItems[index].barcode) {
+      const product = getProductByBarcode(updatedItem.barcode);
+      if (product) {
+        updatedItem.productName = product.productName;
+        updatedItem.unitPrice = product.purchasePrice;
+      }
+    }
+
     newItems[index] = updatedItem;
     setPoItems(newItems);
   };
@@ -69,7 +89,7 @@ export default function CreatePurchaseOrderPage() {
     setPoItems([...poItems, item]);
   };
 
-  const handleSelectLowStockItem = (item: { barcode: string; productName: string }) => {
+  const handleSelectProduct = (item: { barcode: string; productName: string; unitPrice?: number }) => {
     // Check if item already exists in the table
     const existingIndex = poItems.findIndex(
       (poItem) => poItem.barcode === item.barcode && poItem.barcode !== ''
@@ -79,6 +99,10 @@ export default function CreatePurchaseOrderPage() {
     if (existingIndex !== -1) {
       return;
     }
+
+    // Get product price from store
+    const product = getProductByBarcode(item.barcode);
+    const unitPrice = product?.purchasePrice || item.unitPrice || 0;
 
     // Check if there's only one empty row
     const hasOnlyEmptyRow =
@@ -91,19 +115,18 @@ export default function CreatePurchaseOrderPage() {
     if (hasOnlyEmptyRow) {
       // Replace the empty row with the selected item
       setPoItems([
-        { barcode: item.barcode, productName: item.productName, qtyNeeded: 0, unitPrice: 0 },
+        { barcode: item.barcode, productName: item.productName, qtyNeeded: 0, unitPrice },
       ]);
     } else {
       // Add as a new row
       setPoItems([
         ...poItems,
-        { barcode: item.barcode, productName: item.productName, qtyNeeded: 0, unitPrice: 0 },
+        { barcode: item.barcode, productName: item.productName, qtyNeeded: 0, unitPrice },
       ]);
     }
   };
 
-  const handleCreateOrder = () => {
-    // TODO: API call to create purchase order
+  const handleCreateOrder = async () => {
     const validItems = poItems.filter(
       (item) => item.barcode && item.productName && item.qtyNeeded > 0
     );
@@ -113,38 +136,66 @@ export default function CreatePurchaseOrderPage() {
       return;
     }
 
+    // Validate that all products exist in the store and get their SKU IDs
+    const itemsWithSkuIds: { skuId: number; quantity: number; barcode: string }[] = [];
+    const invalidProducts: string[] = [];
+
+    for (const item of validItems) {
+      const product = getProductByBarcode(item.barcode);
+      if (product && product.skuId) {
+        itemsWithSkuIds.push({
+          skuId: product.skuId,
+          quantity: item.qtyNeeded,
+          barcode: item.barcode,
+        });
+      } else {
+        invalidProducts.push(item.barcode);
+      }
+    }
+
+    if (invalidProducts.length > 0) {
+      alert(`The following products do not exist. Please create them first in Create P/S:\n${invalidProducts.join(', ')}`);
+      return;
+    }
+
     if (!selectedSupplierId) {
       alert('Please select a supplier');
       return;
     }
 
-    // Generate unique Purchase Order ID
-    const poId = generatePurchaseOrderId();
-    setLastCreatedPoId(poId);
+    setIsCreating(true);
 
-    // Add purchase order to store
-    addPurchaseOrder({
-      id: poId,
-      supplierId: selectedSupplierId,
-      items: validItems,
-      totalAmount: calculateTotalAmount(),
-      createdAt: new Date(),
-    });
+    try {
+      // Add purchase order via API
+      const createdPO = await addPurchaseOrder({
+        supplierId: parseInt(selectedSupplierId),
+        items: itemsWithSkuIds.map(item => ({
+          skuId: item.skuId,
+          quantity: item.quantity,
+        })),
+      });
 
-    console.log('Purchase Order ID:', poId);
-    console.log('Creating PO with items:', validItems);
-    console.log('Supplier ID:', selectedSupplierId);
-    console.log('Total Amount:', calculateTotalAmount());
+      setLastCreatedPoId(createdPO.id);
 
-    // Show success message
-    setShowSuccessMessage(true);
+      console.log('Purchase Order created:', createdPO);
 
-    // Auto-hide message after 3 seconds
-    setTimeout(() => {
-      setShowSuccessMessage(false);
-    }, 3000);
+      // Show success message
+      setShowSuccessMessage(true);
 
-    // router.push('/inventory');
+      // Reset form
+      setPoItems([{ barcode: '', productName: '', qtyNeeded: 0, unitPrice: 0 }]);
+      setSelectedSupplierId('');
+
+      // Auto-hide message after 3 seconds
+      setTimeout(() => {
+        setShowSuccessMessage(false);
+      }, 3000);
+    } catch (error) {
+      console.error('Error creating purchase order:', error);
+      alert('Failed to create purchase order. Please try again.');
+    } finally {
+      setIsCreating(false);
+    }
   };
 
   return (
@@ -202,13 +253,16 @@ export default function CreatePurchaseOrderPage() {
                   {/* Create Order Button - Changes to green with checkmark when order is created */}
                   <button
                     onClick={handleCreateOrder}
+                    disabled={isCreating}
                     className={`px-8 py-3 rounded-lg font-semibold transition-colors flex items-center gap-2 ${
                       showSuccessMessage
                         ? 'bg-[#4ade80] hover:bg-[#3bc670] text-white'
                         : 'bg-[#b8d4e8] hover:bg-[#a3c4db] text-[#2d4a5c]'
-                    }`}
+                    } disabled:opacity-50 disabled:cursor-not-allowed`}
                   >
-                    {showSuccessMessage ? (
+                    {isCreating ? (
+                      'Creating...'
+                    ) : showSuccessMessage ? (
                       <>
                         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
@@ -227,8 +281,40 @@ export default function CreatePurchaseOrderPage() {
 
             {/* Right Sidebar */}
             <div className="space-y-4">
-              {/* Low Stock Alerts */}
-              <LowStockAlert items={lowStockItems} onSelectItem={handleSelectLowStockItem} />
+              {/* Available Products */}
+              <div className="bg-[#b8d4e8] rounded-lg p-4 min-w-[280px]">
+                <h3 className="text-[#2d4a5c] font-semibold text-lg mb-4">Available Products</h3>
+                <div className="space-y-2 max-h-[250px] overflow-y-auto">
+                  {availableProducts.length === 0 ? (
+                    <p className="text-sm text-gray-600 text-center py-4">
+                      No products available.<br />
+                      Create products in Create P/S first.
+                    </p>
+                  ) : (
+                    availableProducts.map((item) => (
+                      <div
+                        key={item.barcode}
+                        onClick={() => handleSelectProduct(item)}
+                        className="bg-white rounded p-3 flex items-center justify-between cursor-pointer hover:bg-gray-50"
+                      >
+                        <div className="flex-1">
+                          <p className="text-xs text-gray-500 font-mono">{item.barcode}</p>
+                          <p className="text-sm font-medium text-[#2d4a5c]">{item.productName}</p>
+                        </div>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleSelectProduct(item);
+                          }}
+                          className="bg-[#8fa9bc] hover:bg-[#7a96a8] text-white text-xs px-2 py-1 rounded"
+                        >
+                          Add
+                        </button>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
 
               {/* Supplier Selector */}
               <SupplierSelector

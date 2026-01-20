@@ -10,12 +10,16 @@ import {
   type Notification,
 } from '@/app/components/inventory';
 import { useSupplierStore } from '@/app/store/supplierStore';
+import { useProductStore } from '@/app/store/productStore';
 
 type FormMode = 'Create New Product' | 'Create New Supplier';
 
 export default function CreateProductSupplierPage() {
   const router = useRouter();
   const addSupplier = useSupplierStore((state) => state.addSupplier);
+  const createProductWithSKU = useProductStore((state) => state.createProductWithSKU);
+  const getProductByBarcode = useProductStore((state) => state.getProductByBarcode);
+  const [isCreating, setIsCreating] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedOption, setSelectedOption] = useState<FormMode>('Create New Product');
   const [showDropdown, setShowDropdown] = useState(false);
@@ -66,7 +70,7 @@ export default function CreateProductSupplierPage() {
     setShowDropdown(false);
   };
 
-  const handleCreateProduct = (e: React.FormEvent) => {
+  const handleCreateProduct = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!barcode || !productName || !purchasePrice || !sellingPrice) {
@@ -74,57 +78,71 @@ export default function CreateProductSupplierPage() {
       return;
     }
 
-    // TODO: API call to create product
-    const productData = {
-      barcode,
-      productName,
-      purchasePrice: parseFloat(purchasePrice),
-      sellingPrice: parseFloat(sellingPrice),
-    };
-
-    console.log('Creating product:', productData);
-    alert(`Product "${productName}" created successfully!`);
-
-    // Clear form
-    setBarcode('');
-    setProductName('');
-    setPurchasePrice('');
-    setSellingPrice('');
-  };
-
-  const handleCreateSupplier = (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (!supplierId || !supplierName || !supplierContact) {
-      alert('Please fill in all fields');
+    // Check if product with barcode already exists
+    const existingProduct = getProductByBarcode(barcode);
+    if (existingProduct) {
+      alert(`A product with barcode "${barcode}" already exists!`);
       return;
     }
 
-    // Create supplier object
-    const newSupplier = {
-      id: supplierId,
-      name: supplierName,
-      contact: supplierContact,
-    };
+    setIsCreating(true);
 
-    // Add to Zustand store
-    addSupplier(newSupplier);
+    try {
+      // Create product via API
+      await createProductWithSKU({
+        name: productName,
+        barcode: barcode,
+        skuCode: `SKU-${barcode}`,
+        basePrice: parseFloat(purchasePrice),
+      });
 
-    // TODO: API call to create supplier
-    const supplierData = {
-      supplierId,
-      supplierName,
-      supplierContact,
-      products: supplierProducts,
-    };
+      console.log('Product created successfully');
+      alert(`Product "${productName}" created successfully!`);
 
-    console.log('Creating supplier:', supplierData);
-    alert(`Supplier "${supplierName}" created successfully!`);
+      // Clear form
+      setBarcode('');
+      setProductName('');
+      setPurchasePrice('');
+      setSellingPrice('');
+    } catch (error) {
+      console.error('Error creating product:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to create product. Please try again.';
+      alert(errorMessage);
+    } finally {
+      setIsCreating(false);
+    }
+  };
 
-    // Clear form
-    setSupplierId('');
-    setSupplierName('');
-    setSupplierContact('');
+  const handleCreateSupplier = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!supplierName || !supplierContact) {
+      alert('Please fill in all required fields');
+      return;
+    }
+
+    setIsCreating(true);
+
+    try {
+      // Create supplier via API
+      const newSupplier = await addSupplier({
+        name: supplierName,
+        contact: supplierContact,
+      });
+
+      console.log('Supplier created:', newSupplier);
+      alert(`Supplier "${supplierName}" created successfully!`);
+
+      // Clear form
+      setSupplierId('');
+      setSupplierName('');
+      setSupplierContact('');
+    } catch (error) {
+      console.error('Error creating supplier:', error);
+      alert('Failed to create supplier. Please try again.');
+    } finally {
+      setIsCreating(false);
+    }
   };
 
   return (
@@ -230,9 +248,10 @@ export default function CreateProductSupplierPage() {
 
                       <button
                         type="submit"
-                        className="w-full bg-[#b8d4e8] hover:bg-[#a3c4db] text-[#2d4a5c] py-3 rounded-lg font-semibold transition-colors mt-4"
+                        disabled={isCreating}
+                        className="w-full bg-[#b8d4e8] hover:bg-[#a3c4db] text-[#2d4a5c] py-3 rounded-lg font-semibold transition-colors mt-4 disabled:opacity-50 disabled:cursor-not-allowed"
                       >
-                        Create Product
+                        {isCreating ? 'Creating...' : 'Create Product'}
                       </button>
                     </div>
                   </div>
@@ -322,9 +341,10 @@ export default function CreateProductSupplierPage() {
 
                       <button
                         type="submit"
-                        className="w-full bg-[#b8d4e8] hover:bg-[#a3c4db] text-[#2d4a5c] py-3 rounded-lg font-semibold transition-colors mt-4"
+                        disabled={isCreating}
+                        className="w-full bg-[#b8d4e8] hover:bg-[#a3c4db] text-[#2d4a5c] py-3 rounded-lg font-semibold transition-colors mt-4 disabled:opacity-50 disabled:cursor-not-allowed"
                       >
-                        Create Supplier
+                        {isCreating ? 'Creating...' : 'Create Supplier'}
                       </button>
                     </div>
                   </div>

@@ -1,9 +1,10 @@
 'use client';
 
-import { useState } from 'react';
-import { ArrowLeft, Search, ShoppingCart, User, Minus, Plus, Copy, Check } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { ArrowLeft, Search, ShoppingCart, User, Minus, Plus, Copy, Check, LogOut } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useSalesStore } from '../store/salesStore';
+import { useAuthStore } from '../store/authStore';
 
 interface RefundItem {
   id: string;
@@ -30,11 +31,24 @@ export default function RefundsPage() {
   const [orderFound, setOrderFound] = useState(false);
   const [currentOrderId, setCurrentOrderId] = useState<string | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<{ cash: number; card: number; transfer: number } | null>(null);
+  const [isUserDropdownOpen, setIsUserDropdownOpen] = useState(false);
 
   const [refundItems, setRefundItems] = useState<RefundItem[]>([]);
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
-  const { getSaleByOrderId, sales } = useSalesStore();
+  const { getSaleByOrderId, sales, fetchSales } = useSalesStore();
+  const user = useAuthStore((state) => state.user);
+  const logout = useAuthStore((state) => state.logout);
+
+  const handleLogout = async () => {
+    await logout();
+    router.push('/login');
+  };
+
+  // Fetch sales on mount
+  useEffect(() => {
+    fetchSales();
+  }, [fetchSales]);
 
   const handleSelectOrderId = (orderId: string) => {
     setSaleOrderNumber(orderId);
@@ -169,11 +183,37 @@ export default function RefundsPage() {
             <button className="p-2 bg-[#4a6575] rounded-md hover:bg-[#3d5a6c]">
               <Search className="text-white" size={20} />
             </button>
-            <div className="flex items-center gap-2 bg-[#4a6575] px-3 py-2 rounded-md">
-              <div className="w-8 h-8 bg-orange-400 rounded-full flex items-center justify-center">
-                <User size={18} className="text-white" />
-              </div>
-              <span className="text-white text-sm">John D</span>
+            <div className="relative">
+              <button
+                onClick={() => setIsUserDropdownOpen(!isUserDropdownOpen)}
+                className="flex items-center gap-2 bg-[#4a6575] px-3 py-2 rounded-md hover:bg-[#3d5a6c] transition-colors cursor-pointer"
+              >
+                <div className="w-8 h-8 bg-orange-400 rounded-full flex items-center justify-center">
+                  <span className="text-white font-semibold text-sm">
+                    {user?.name ? user.name.split(' ').map(n => n[0]).join('').toUpperCase() : 'U'}
+                  </span>
+                </div>
+                <span className="text-white text-sm">{user?.name || 'User'}</span>
+                <svg className={`w-4 h-4 text-gray-300 transition-transform ${isUserDropdownOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+
+              {isUserDropdownOpen && (
+                <div className="absolute top-full right-0 mt-2 w-48 bg-white rounded-lg shadow-lg z-50 overflow-hidden border border-gray-200">
+                  <div className="px-4 py-3 border-b border-gray-100">
+                    <p className="text-sm font-medium text-gray-900">{user?.name || 'User'}</p>
+                    <p className="text-xs text-gray-500">{user?.role || 'User'}</p>
+                  </div>
+                  <button
+                    onClick={handleLogout}
+                    className="w-full flex items-center gap-3 px-4 py-3 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                  >
+                    <LogOut size={18} />
+                    <span>Logout</span>
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </header>

@@ -34,10 +34,7 @@ export default function LoginPage() {
     setLoginError(null);
 
     try {
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 500));
-
-      const result = login(data.username, data.password);
+      const result = await login(data.username, data.password);
 
       if (result.success && result.role) {
         // Role-based routing

@@ -1,7 +1,10 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { LogOut } from 'lucide-react';
+import { useAuthStore } from '@/app/store/authStore';
+import { useInventoryStore } from '@/app/store/inventoryStore';
 
 interface Register {
   id: number;
@@ -11,14 +14,43 @@ interface Register {
 
 export default function RegisterPage() {
   const router = useRouter();
-  const [registers] = useState<Register[]>([
-    { id: 1, name: 'Register 1', status: 'available' },
-    { id: 2, name: 'Register 2', status: 'available' },
-    { id: 3, name: 'Register 3', status: 'available' },
-    { id: 4, name: 'Register 4', status: 'available' },
-    { id: 5, name: 'Register 5', status: 'available' },
-    { id: 6, name: 'Register 6', status: 'available' },
-  ]);
+  const [isUserDropdownOpen, setIsUserDropdownOpen] = useState(false);
+  const user = useAuthStore((state) => state.user);
+  const logout = useAuthStore((state) => state.logout);
+  const fetchRegisters = useInventoryStore((state) => state.fetchRegisters);
+  const registers = useInventoryStore((state) => state.registers);
+
+  // Get first name from full name (e.g., "John Manager" -> "John")
+  const firstName = user?.name?.split(' ')[0] || 'User';
+  const userInitials = user?.name
+    ? user.name.split(' ').map(n => n[0]).join('').toUpperCase()
+    : 'U';
+
+  const handleLogout = async () => {
+    await logout();
+    router.push('/login');
+  };
+
+  // Fetch registers on mount
+  useEffect(() => {
+    fetchRegisters();
+  }, [fetchRegisters]);
+
+  // Map API registers to display format, or use defaults if empty
+  const displayRegisters: Register[] = registers.length > 0
+    ? registers.map((reg) => ({
+        id: reg.id,
+        name: reg.name,
+        status: reg.isActive ? 'available' : 'in-use',
+      }))
+    : [
+        { id: 1, name: 'Register 1', status: 'available' },
+        { id: 2, name: 'Register 2', status: 'available' },
+        { id: 3, name: 'Register 3', status: 'available' },
+        { id: 4, name: 'Register 4', status: 'available' },
+        { id: 5, name: 'Register 5', status: 'available' },
+        { id: 6, name: 'Register 6', status: 'available' },
+      ];
 
   const handleRegisterSelect = (registerId: number) => {
     // Navigate to POS checkout page
@@ -44,7 +76,7 @@ export default function RegisterPage() {
               Welcome back
             </h2>
             <h2 className="text-6xl font-bold text-amber-500 mb-8">
-              john!
+              {firstName}!
             </h2>
           </div>
 
@@ -73,18 +105,39 @@ export default function RegisterPage() {
       {/* Right Side - Register Grid */}
       <div className="flex-1 p-12 flex items-center justify-center">
         {/* User Profile - Top Right */}
-        <div className="absolute top-6 right-6 flex flex-col items-center gap-2">
-          <div className="w-12 h-12 rounded-full bg-amber-500 flex items-center justify-center">
-            <span className="text-white font-bold text-xl">J</span>
-          </div>
-          <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-          </svg>
+        <div className="absolute top-6 right-6">
+          <button
+            onClick={() => setIsUserDropdownOpen(!isUserDropdownOpen)}
+            className="flex flex-col items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity"
+          >
+            <div className="w-12 h-12 rounded-full bg-amber-500 flex items-center justify-center">
+              <span className="text-white font-bold text-xl">{userInitials}</span>
+            </div>
+            <svg className={`w-5 h-5 text-gray-400 transition-transform ${isUserDropdownOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+
+          {isUserDropdownOpen && (
+            <div className="absolute top-full right-0 mt-2 w-48 bg-white rounded-lg shadow-lg z-50 overflow-hidden border border-gray-200">
+              <div className="px-4 py-3 border-b border-gray-100">
+                <p className="text-sm font-medium text-gray-900">{user?.name || 'User'}</p>
+                <p className="text-xs text-gray-500">{user?.role || 'User'}</p>
+              </div>
+              <button
+                onClick={handleLogout}
+                className="w-full flex items-center gap-3 px-4 py-3 text-sm text-red-600 hover:bg-red-50 transition-colors"
+              >
+                <LogOut size={18} />
+                <span>Logout</span>
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Register Cards Grid */}
         <div className="grid grid-cols-2 gap-6 max-w-2xl w-full">
-          {registers.map((register) => (
+          {displayRegisters.map((register) => (
             <button
               key={register.id}
               onClick={() => handleRegisterSelect(register.id)}

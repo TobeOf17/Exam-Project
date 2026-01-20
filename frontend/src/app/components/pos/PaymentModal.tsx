@@ -3,12 +3,15 @@
 import React, { useState } from 'react';
 import { Printer } from 'lucide-react';
 import { useSalesStore, SaleItem } from '../../store/salesStore';
+import { useInventoryStore } from '../../store/inventoryStore';
+import { useAuthStore } from '../../store/authStore';
 
 interface CartItem {
   barcode: string;
   name: string;
   quantity: number;
   price: number;
+  skuId?: number;
 }
 
 interface PaymentModalProps {
@@ -30,6 +33,10 @@ export default function PaymentModal({ isOpen, onClose, totalAmount, cartItems, 
   const [currentOrderId, setCurrentOrderId] = useState<string | null>(null);
 
   const { addSale, generateOrderId } = useSalesStore();
+  const stores = useInventoryStore((state) => state.stores);
+  const registers = useInventoryStore((state) => state.registers);
+  const currentStoreId = useInventoryStore((state) => state.currentStoreId);
+  const user = useAuthStore((state) => state.user);
 
   if (!isOpen) return null;
 
@@ -41,50 +48,59 @@ export default function PaymentModal({ isOpen, onClose, totalAmount, cartItems, 
     setIsFailed(false);
 
     // Simulate payment processing
-    await new Promise(resolve => setTimeout(resolve, 2000));
+    await new Promise(resolve => setTimeout(resolve, 1000));
 
-    // TODO: Replace with actual payment API call
-    // Simulate random success/failure (70% success rate for demo)
-    const isSuccess = Math.random() > 0.3;
-
-    if (isSuccess) {
-      const orderId = generateOrderId();
-      setCurrentOrderId(orderId);
-      console.log('Payment confirmed:', { orderId, cashAmount, cardAmount, transferAmount, totalPaid, change });
-      setIsProcessing(false);
-      setIsApproved(true);
-      // Don't close modal - wait for user to click Save or Print
-    } else {
-      console.log('Payment failed');
-      setIsProcessing(false);
-      setIsFailed(true);
-      // Allow user to retry
-    }
+    // Payment is always successful
+    const orderId = generateOrderId();
+    setCurrentOrderId(orderId);
+    console.log('Payment confirmed:', { orderId, cashAmount, cardAmount, transferAmount, totalPaid, change });
+    setIsProcessing(false);
+    setIsApproved(true);
+    // Don't close modal - wait for user to click Save or Print
   };
 
-  const saveSaleToStore = () => {
+  const saveSaleToStore = async () => {
     if (!currentOrderId || cartItems.length === 0) return;
+
+    // Get store and register IDs
+    const storeId = currentStoreId || (stores.length > 0 ? stores[0].id : null);
+    const registerId = registers.length > 0 ? registers[0].id : null;
+    const cashierId = user?.id;
+
+    if (!storeId || !registerId || !cashierId) {
+      console.error('Missing required IDs:', { storeId, registerId, cashierId });
+      alert('Unable to complete sale. Missing store, register, or user information.');
+      return;
+    }
 
     const saleItems: SaleItem[] = cartItems.map((item) => ({
       barcode: item.barcode,
       name: item.name,
       quantity: item.quantity,
       price: item.price,
+      skuId: item.skuId || 0,
     }));
 
-    addSale({
-      orderId: currentOrderId,
-      items: saleItems,
-      totalAmount,
-      paymentMethod: {
-        cash: parseFloat(cashAmount || '0'),
-        card: parseFloat(cardAmount || '0'),
-        transfer: parseFloat(transferAmount || '0'),
-      },
-      createdAt: new Date(),
-    });
+    try {
+      await addSale({
+        items: saleItems,
+        totalAmount,
+        paymentMethod: {
+          cash: parseFloat(cashAmount || '0'),
+          card: parseFloat(cardAmount || '0'),
+          transfer: parseFloat(transferAmount || '0'),
+        },
+        storeId,
+        registerId,
+        cashierId,
+        createdAt: new Date(),
+      });
 
-    console.log('Sale saved with Order ID:', currentOrderId);
+      console.log('Sale saved with Order ID:', currentOrderId);
+    } catch (error) {
+      console.error('Failed to save sale:', error);
+      alert('Failed to save sale. Please try again.');
+    }
   };
 
   const handlePrint = async () => {

@@ -33,11 +33,6 @@ export default function PaymentActions({ onConfirmClick, onCancelClick }: Paymen
 
       {/* Action Buttons Group - Right Side */}
       <div className="flex gap-3">
-        {/* Hold Button */}
-        <button className="px-6 py-3 bg-[#4ADE80] hover:bg-[#3BC670] text-white font-semibold rounded-lg transition-colors shadow-md">
-          Hold
-        </button>
-
         {/* Cancel Button */}
         <button
           onClick={onCancelClick}

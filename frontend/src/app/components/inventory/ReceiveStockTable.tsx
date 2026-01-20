@@ -9,12 +9,23 @@ export interface ReceiveStockItem {
   qtyPurchased: number;
   qtyDelivered: number;
   unitPrice: number;
+  skuId?: number;
+}
+
+interface ProductSearchResult {
+  barcode: string;
+  productName: string;
+  purchasePrice: number;
+  sellingPrice: number;
+  skuId: number;
 }
 
 interface ReceiveStockTableProps {
   items: ReceiveStockItem[];
   onUpdateItem?: (index: number, item: ReceiveStockItem) => void;
   onAddItem?: (item: ReceiveStockItem) => void;
+  searchProducts?: (query: string) => ProductSearchResult[];
+  onAddProductFromSearch?: (product: { barcode: string; productName: string; purchasePrice: number; skuId: number }) => void;
   minRows?: number;
 }
 
@@ -22,9 +33,13 @@ export default function ReceiveStockTable({
   items,
   onUpdateItem,
   onAddItem,
+  searchProducts,
+  onAddProductFromSearch,
   minRows = 6,
 }: ReceiveStockTableProps) {
   const [searchQuery, setSearchQuery] = useState('');
+  const [productSearchResults, setProductSearchResults] = useState<ProductSearchResult[]>([]);
+  const [showSearchResults, setShowSearchResults] = useState(false);
 
   // State for empty editable rows
   const [emptyRows, setEmptyRows] = useState<ReceiveStockItem[]>([]);
@@ -66,16 +81,33 @@ export default function ReceiveStockTable({
     return (unitPrice * qtyDelivered).toFixed(2);
   };
 
-  // Filter items based on search query
-  const filteredItems = items.filter((item) => {
-    const query = searchQuery.toLowerCase();
-    return (
-      item.barcode.toLowerCase().includes(query) ||
-      item.productName.toLowerCase().includes(query)
-    );
-  });
+  // Handle product search
+  const handleSearchChange = (query: string) => {
+    setSearchQuery(query);
+    if (query.trim() && searchProducts) {
+      const results = searchProducts(query);
+      setProductSearchResults(results);
+      setShowSearchResults(true);
+    } else {
+      setProductSearchResults([]);
+      setShowSearchResults(false);
+    }
+  };
 
-  const displayItems = searchQuery ? filteredItems : items;
+  // Handle adding product from search
+  const handleSelectProduct = (product: ProductSearchResult) => {
+    onAddProductFromSearch?.({
+      barcode: product.barcode,
+      productName: product.productName,
+      purchasePrice: product.purchasePrice,
+      skuId: product.skuId,
+    });
+    setSearchQuery('');
+    setProductSearchResults([]);
+    setShowSearchResults(false);
+  };
+
+  const displayItems = items;
 
   return (
     <div className="bg-[#a8c5d8] rounded-lg p-4">
@@ -84,12 +116,41 @@ export default function ReceiveStockTable({
         <div className="relative">
           <input
             type="text"
-            placeholder="Search..."
+            placeholder="Search product by barcode or name..."
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10 pr-4 py-2 rounded-md border-none bg-white text-sm text-gray-900 placeholder-gray-400 w-64"
+            onChange={(e) => handleSearchChange(e.target.value)}
+            className="pl-10 pr-4 py-2 rounded-md border-none bg-white text-sm text-gray-900 placeholder-gray-400 w-72 focus:outline-none focus:ring-2 focus:ring-[#34516A]"
           />
           <Search className="absolute left-3 top-2.5 text-gray-400" size={18} />
+
+          {/* Product Search Results Dropdown */}
+          {showSearchResults && (
+            <div className="absolute top-full mt-1 right-0 w-72 bg-white rounded-lg shadow-lg z-10 max-h-64 overflow-y-auto">
+              {productSearchResults.length === 0 ? (
+                <div className="px-4 py-3 text-gray-500 text-sm">
+                  No products found. Create products in Create P/S first.
+                </div>
+              ) : (
+                productSearchResults.map((product) => (
+                  <div
+                    key={product.barcode}
+                    onClick={() => handleSelectProduct(product)}
+                    className="px-4 py-3 hover:bg-gray-100 cursor-pointer border-b last:border-b-0"
+                  >
+                    <div className="flex justify-between items-center">
+                      <div>
+                        <p className="text-sm font-medium text-gray-800">{product.productName}</p>
+                        <p className="text-xs text-gray-500 font-mono">{product.barcode}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-xs text-gray-600">{product.purchasePrice.toFixed(2)}</p>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
         </div>
       </div>
 
@@ -251,9 +312,6 @@ export default function ReceiveStockTable({
           </tbody>
         </table>
       </div>
-      {searchQuery && displayItems.length === 0 && (
-        <p className="text-center text-gray-500 py-4 text-sm">No items found</p>
-      )}
     </div>
   );
 }

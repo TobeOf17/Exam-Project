@@ -15,8 +15,39 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 from django.contrib import admin
-from django.urls import path
+from django.urls import path, include
+from rest_framework.routers import DefaultRouter
+
+from products.views import ProductViewSet, SKUViewSet
+from inventory.views import StoreViewSet, RegisterViewSet, StockLevelViewSet, StockMovementViewSet
+from sales.views import SaleViewSet, ReturnViewSet
+from suppliers.views import SupplierViewSet, PurchaseOrderViewSet, PurchaseOrderLineViewSet
+
+# Create a router and register ViewSets
+router = DefaultRouter()
+
+# Products
+router.register(r'products', ProductViewSet, basename='product')
+router.register(r'skus', SKUViewSet, basename='sku')
+
+# Inventory
+router.register(r'stores', StoreViewSet, basename='store')
+router.register(r'registers', RegisterViewSet, basename='register')
+router.register(r'stock-levels', StockLevelViewSet, basename='stocklevel')
+router.register(r'stock-movements', StockMovementViewSet, basename='stockmovement')
+
+# Sales
+router.register(r'sales', SaleViewSet, basename='sale')
+router.register(r'returns', ReturnViewSet, basename='return')
+
+# Suppliers
+router.register(r'suppliers', SupplierViewSet, basename='supplier')
+router.register(r'purchase-orders', PurchaseOrderViewSet, basename='purchaseorder')
+router.register(r'purchase-order-lines', PurchaseOrderLineViewSet, basename='purchaseorderline')
 
 urlpatterns = [
     path("admin/", admin.site.urls),
+    path("api/", include(router.urls)),
+    path("api/", include("accounts.urls")),
+    path("api/reports/", include("reports.urls")),
 ]

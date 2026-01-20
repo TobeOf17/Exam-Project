@@ -1,0 +1,121 @@
+-- 1. SUPPLIERS MODULE
+CREATE TABLE suppliers_supplier (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    contact_info TEXT NOT NULL
+);
+
+CREATE TABLE suppliers_purchaseorder (
+    id SERIAL PRIMARY KEY,
+    supplier_id INTEGER NOT NULL REFERENCES suppliers_supplier(id),
+    status VARCHAR(20) DEFAULT 'PENDING' NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL
+);
+
+-- 2. PRODUCTS MODULE
+CREATE TABLE products_product (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    description TEXT,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL
+);
+
+CREATE TABLE products_sku (
+    id SERIAL PRIMARY KEY,
+    product_id INTEGER NOT NULL REFERENCES products_product(id),
+    sku_code VARCHAR(100) UNIQUE NOT NULL,
+    barcode VARCHAR(100) UNIQUE NOT NULL,
+    base_price DECIMAL(10, 2) NOT NULL
+);
+
+-- 3. INVENTORY MODULE
+CREATE TABLE inventory_store (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    location TEXT NOT NULL
+);
+
+CREATE TABLE inventory_register (
+    id SERIAL PRIMARY KEY,
+    store_id INTEGER NOT NULL REFERENCES inventory_store(id),
+    identifier VARCHAR(50) NOT NULL
+);
+
+CREATE TABLE inventory_stocklevel (
+    id SERIAL PRIMARY KEY,
+    store_id INTEGER NOT NULL REFERENCES inventory_store(id),
+    sku_id INTEGER NOT NULL REFERENCES products_sku(id),
+    quantity INTEGER DEFAULT 0 NOT NULL CHECK (quantity >= 0),
+    UNIQUE (store_id, sku_id) -- 
+);
+
+CREATE TABLE inventory_stockmovement (
+    id SERIAL PRIMARY KEY,
+    stock_level_id INTEGER NOT NULL REFERENCES inventory_stocklevel(id),
+    movement_type VARCHAR(20) NOT NULL, -- SALE, PURCHASE, RETURN, ADJUSTMENT
+    quantity_changed INTEGER NOT NULL,
+    timestamp TIMESTAMP WITH TIME ZONE NOT NULL
+);
+
+-- 4. ACCOUNTS MODULE (Employee User Model)
+CREATE TABLE accounts_employee (
+    id SERIAL PRIMARY KEY,
+    password VARCHAR(128) NOT NULL,
+    last_login TIMESTAMP WITH TIME ZONE,
+    is_superuser BOOLEAN NOT NULL,
+    username VARCHAR(150) UNIQUE NOT NULL,
+    first_name VARCHAR(150),
+    last_name VARCHAR(150),
+    email VARCHAR(254),
+    is_staff BOOLEAN NOT NULL,
+    is_active BOOLEAN NOT NULL,
+    date_joined TIMESTAMP WITH TIME ZONE NOT NULL,
+    role VARCHAR(10) DEFAULT 'CASHIER' NOT NULL, -- [cite: 1]
+    store_id INTEGER REFERENCES inventory_store(id) ON DELETE SET NULL -- [cite: 2]
+);
+
+-- 5. SALES MODULE
+CREATE TABLE sales_sale (
+    id SERIAL PRIMARY KEY,
+    store_id INTEGER NOT NULL REFERENCES inventory_store(id) ON DELETE PROTECT,
+    register_id INTEGER NOT NULL REFERENCES inventory_register(id) ON DELETE PROTECT,
+    cashier_id INTEGER NOT NULL REFERENCES accounts_employee(id) ON DELETE PROTECT,
+    total_amount DECIMAL(10, 2) NOT NULL,
+    payment_method VARCHAR(20) NOT NULL, -- [cite: 6]
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL
+);
+
+CREATE TABLE sales_saleline (
+    id SERIAL PRIMARY KEY,
+    sale_id INTEGER NOT NULL REFERENCES sales_sale(id),
+    sku_id INTEGER NOT NULL REFERENCES products_sku(id) ON DELETE PROTECT,
+    quantity INTEGER NOT NULL CHECK (quantity >= 0),
+    unit_price DECIMAL(10, 2) NOT NULL
+);
+
+CREATE TABLE sales_receipt (
+    id SERIAL PRIMARY KEY,
+    sale_id INTEGER UNIQUE NOT NULL REFERENCES sales_sale(id),
+    receipt_number VARCHAR(100) UNIQUE NOT NULL
+);
+
+CREATE TABLE sales_return (
+    id SERIAL PRIMARY KEY,
+    original_sale_id INTEGER NOT NULL REFERENCES sales_sale(id) ON DELETE PROTECT,
+    reason VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL
+);
+
+CREATE TABLE sales_refund (
+    id SERIAL PRIMARY KEY,
+    return_record_id INTEGER UNIQUE NOT NULL REFERENCES sales_return(id), -- 
+    amount DECIMAL(10, 2) NOT NULL
+);
+
+-- 6. ADDITIONAL RELATIONSHIPS
+CREATE TABLE suppliers_purchaseorderline (
+    id SERIAL PRIMARY KEY,
+    purchase_order_id INTEGER NOT NULL REFERENCES suppliers_purchaseorder(id),
+    sku_id INTEGER NOT NULL REFERENCES products_sku(id),
+    quantity INTEGER NOT NULL CHECK (quantity >= 0)
+);

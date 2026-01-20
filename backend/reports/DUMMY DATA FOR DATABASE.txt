@@ -1,0 +1,65 @@
+-- 1. POPULATE SUPPLIERS
+INSERT INTO suppliers_supplier (name, contact_info) VALUES 
+('Global Tech Wholesalers', '123 Tech Lane, contact@globaltech.com'),
+('Office Essentials Co.', '456 Supply Road, sales@officeessentials.com');
+
+-- 2. POPULATE PRODUCTS
+INSERT INTO products_product (name, description, created_at) VALUES 
+('Wireless Mouse', 'Ergonomic 2.4GHz wireless mouse', CURRENT_TIMESTAMP),
+('Mechanical Keyboard', 'RGB Backlit mechanical keyboard', CURRENT_TIMESTAMP);
+
+INSERT INTO products_sku (product_id, sku_code, barcode, base_price) VALUES 
+(1, 'MOU-WRLS-001', '1234567890123', 25.00),
+(2, 'KBD-MECH-002', '9876543210987', 75.00);
+
+-- 3. POPULATE INVENTORY (Stores & Registers)
+INSERT INTO inventory_store (name, location) VALUES 
+('Downtown Branch', '101 Main St, Metropolis'),
+('Uptown Outlet', '505 High St, Metropolis');
+
+INSERT INTO inventory_register (store_id, identifier) VALUES 
+(1, 'REG-01'),
+(1, 'REG-02'),
+(2, 'REG-01');
+
+-- 4. POPULATE ACCOUNTS (Employees)
+-- Password hashes are simplified placeholders; in Django, these would be PBKDF2 or Argon2 hashes.
+INSERT INTO accounts_employee (password, last_login, is_superuser, username, first_name, last_name, email, is_staff, is_active, date_joined, role, store_id) VALUES 
+('pbkdf2_sha256$placeholder', CURRENT_TIMESTAMP, true, 'admin_user', 'System', 'Admin', 'admin@store.com', true, true, CURRENT_TIMESTAMP, 'MANAGER', 1),
+('pbkdf2_sha256$placeholder', CURRENT_TIMESTAMP, false, 'jdoe_cashier', 'John', 'Doe', 'jdoe@store.com', false, true, CURRENT_TIMESTAMP, 'CASHIER', 1);
+
+-- 5. POPULATE STOCK LEVELS
+INSERT INTO inventory_stocklevel (store_id, sku_id, quantity) VALUES 
+(1, 1, 50), -- 50 Mice at Downtown 
+(1, 2, 20), -- 20 Keyboards at Downtown 
+(2, 1, 30); -- 30 Mice at Uptown 
+
+-- 6. POPULATE SALES
+INSERT INTO sales_sale (store_id, register_id, cashier_id, total_amount, payment_method, created_at) VALUES 
+(1, 1, 2, 100.00, 'CREDIT_CARD', CURRENT_TIMESTAMP); -- 
+
+INSERT INTO sales_saleline (sale_id, sku_id, quantity, unit_price) VALUES 
+(1, 1, 1, 25.00),
+(1, 2, 1, 75.00);
+
+INSERT INTO sales_receipt (sale_id, receipt_number) VALUES 
+(1, 'REC-20231027-001');
+
+-- 7. POPULATE RETURNS & REFUNDS
+INSERT INTO sales_return (original_sale_id, reason, created_at) VALUES 
+(1, 'Defective keyboard', CURRENT_TIMESTAMP);
+
+INSERT INTO sales_refund (return_record_id, amount) VALUES 
+(1, 75.00); -- 
+
+-- 8. POPULATE PURCHASE ORDERS
+INSERT INTO suppliers_purchaseorder (supplier_id, status, created_at) VALUES 
+(1, 'DELIVERED', CURRENT_TIMESTAMP);
+
+INSERT INTO suppliers_purchaseorderline (purchase_order_id, sku_id, quantity) VALUES 
+(1, 1, 100);
+
+-- 9. POPULATE STOCK MOVEMENTS
+INSERT INTO inventory_stockmovement (stock_level_id, movement_type, quantity_changed, timestamp) VALUES 
+(1, 'SALE', -1, CURRENT_TIMESTAMP),
+(1, 'PURCHASE', 100, CURRENT_TIMESTAMP);

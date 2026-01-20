@@ -1,4 +1,4 @@
-import api from '../lib/api';
+import api from '../../lib/api';
 
 // Backend response types
 export interface SKU {

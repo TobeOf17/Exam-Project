@@ -5,6 +5,8 @@ Built with **Next.js**, **Django**, and **PostgreSQL**
 
 ---
 
+Live Link: https://exam-project-neon.vercel.app
+
 ## 📌 Project Overview
 
 A modular, scalable Point-of-Sale and Inventory Management System designed for retail operations.  

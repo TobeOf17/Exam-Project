@@ -2,9 +2,10 @@
 
 import React, { useState } from 'react';
 import { Printer } from 'lucide-react';
-import { useSalesStore, SaleItem } from '../../store/salesStore';
+// import { useSalesStore, SaleItem } from '../../store/salesStore'; // Optional if you use store
 
 interface CartItem {
+  sku_id?: number; // Added this
   barcode: string;
   name: string;
   quantity: number;
@@ -29,8 +30,6 @@ export default function PaymentModal({ isOpen, onClose, totalAmount, cartItems, 
   const [showSold, setShowSold] = useState(false);
   const [currentOrderId, setCurrentOrderId] = useState<string | null>(null);
 
-  const { addSale, generateOrderId } = useSalesStore();
-
   if (!isOpen) return null;
 
   const totalPaid = parseFloat(cashAmount || '0') + parseFloat(cardAmount || '0') + parseFloat(transferAmount || '0');
@@ -40,70 +39,68 @@ export default function PaymentModal({ isOpen, onClose, totalAmount, cartItems, 
     setIsProcessing(true);
     setIsFailed(false);
 
-    // Simulate payment processing
-    await new Promise(resolve => setTimeout(resolve, 2000));
+    try {
+        const token = localStorage.getItem("access");
+        
+        // 1. PREPARE DATA FOR DJANGO
+        const payload = {
+            store: 1,      // Default ID
+            register: 1,   // Default ID
+            cashier: 1,    // Default ID
+            total_amount: totalAmount,
+            payment_method: "CASH", // Backend requires string, we send CASH for now
+            lines: cartItems.map(item => ({
+                sku: item.sku_id, 
+                quantity: item.quantity,
+                unit_price: item.price
+            }))
+        };
 
-    // TODO: Replace with actual payment API call
-    // Simulate random success/failure (70% success rate for demo)
-    const isSuccess = Math.random() > 0.3;
+        // 2. SEND TO BACKEND
+        const response = await fetch('http://127.0.0.1:8000/api/sales/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify(payload)
+        });
 
-    if (isSuccess) {
-      const orderId = generateOrderId();
-      setCurrentOrderId(orderId);
-      console.log('Payment confirmed:', { orderId, cashAmount, cardAmount, transferAmount, totalPaid, change });
-      setIsProcessing(false);
-      setIsApproved(true);
-      // Don't close modal - wait for user to click Save or Print
-    } else {
-      console.log('Payment failed');
-      setIsProcessing(false);
-      setIsFailed(true);
-      // Allow user to retry
+        const data = await response.json();
+
+        if (response.ok) {
+            // SUCCESS
+            setCurrentOrderId(data.id.toString()); // Use Backend ID
+            setIsProcessing(false);
+            setIsApproved(true);
+        } else {
+            // FAILURE
+            console.error(data);
+            setIsProcessing(false);
+            setIsFailed(true);
+            alert("Sale Failed: " + JSON.stringify(data));
+        }
+
+    } catch (error) {
+        console.error('Payment Error', error);
+        setIsProcessing(false);
+        setIsFailed(true);
     }
   };
 
-  const saveSaleToStore = () => {
-    if (!currentOrderId || cartItems.length === 0) return;
-
-    const saleItems: SaleItem[] = cartItems.map((item) => ({
-      barcode: item.barcode,
-      name: item.name,
-      quantity: item.quantity,
-      price: item.price,
-    }));
-
-    addSale({
-      orderId: currentOrderId,
-      items: saleItems,
-      totalAmount,
-      paymentMethod: {
-        cash: parseFloat(cashAmount || '0'),
-        card: parseFloat(cardAmount || '0'),
-        transfer: parseFloat(transferAmount || '0'),
-      },
-      createdAt: new Date(),
-    });
-
-    console.log('Sale saved with Order ID:', currentOrderId);
-  };
-
   const handlePrint = async () => {
-    saveSaleToStore();
-    console.log('Printing receipt...');
     // Show SOLD message
     setShowSold(true);
-    // Wait for 3 seconds then close (gives time to note Order ID)
+    // Wait for 3 seconds then close
     await new Promise(resolve => setTimeout(resolve, 3000));
     onSaleComplete();
     resetAndClose();
   };
 
   const handleSave = async () => {
-    saveSaleToStore();
-    console.log('Saving transaction...');
     // Show SOLD message
     setShowSold(true);
-    // Wait for 3 seconds then close (gives time to note Order ID)
+    // Wait for 3 seconds then close
     await new Promise(resolve => setTimeout(resolve, 3000));
     onSaleComplete();
     resetAndClose();
@@ -131,7 +128,7 @@ export default function PaymentModal({ isOpen, onClose, totalAmount, cartItems, 
           </div>
           <div className="mt-4 text-center">
             <p className="text-gray-500 text-sm">Order ID</p>
-            <p className="text-gray-800 font-bold text-xl">{currentOrderId}</p>
+            <p className="text-gray-800 font-bold text-xl">#{currentOrderId}</p>
           </div>
         </div>
       </div>
@@ -225,9 +222,9 @@ export default function PaymentModal({ isOpen, onClose, totalAmount, cartItems, 
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
             </svg>
           ) : isFailed ? (
-            <span>Payment Failed</span>
+            <span>Payment Failed (Retry)</span>
           ) : (
-            <span>Payment Confirmed</span>
+            <span>Confirm Payment</span>
           )}
         </button>
 
@@ -235,13 +232,15 @@ export default function PaymentModal({ isOpen, onClose, totalAmount, cartItems, 
         <div className="flex gap-3">
           <button
             onClick={handlePrint}
-            className="flex-1 bg-blue-100 hover:bg-blue-200 border-2 border-blue-300 text-gray-700 font-semibold py-3 rounded-lg transition-colors flex items-center justify-center gap-2"
+            disabled={!isApproved}
+            className="flex-1 bg-blue-100 hover:bg-blue-200 border-2 border-blue-300 text-gray-700 font-semibold py-3 rounded-lg transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
           >
             <Printer className="w-5 h-5" />
           </button>
           <button
             onClick={handleSave}
-            className="flex-1 bg-blue-100 hover:bg-blue-200 border-2 border-blue-300 text-gray-700 font-semibold py-3 rounded-lg transition-colors"
+            disabled={!isApproved}
+            className="flex-1 bg-blue-100 hover:bg-blue-200 border-2 border-blue-300 text-gray-700 font-semibold py-3 rounded-lg transition-colors disabled:opacity-50"
           >
             Save
           </button>
